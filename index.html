@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือทบทวนคำศัพท์ (Custom Audio Vocabulary)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Prompt', 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .vocab-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .vocab-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .playing {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            transform: scale(1.02);
+        }
+        .blur-text {
+            filter: blur(5px);
+            transition: filter 0.3s;
+            cursor: pointer;
+        }
+        .blur-text:hover {
+            filter: blur(0px);
+        }
+        /* ซ่อน Scrollbar สำหรับ Textarea */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 text-center border-t-4 border-blue-500 relative">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">🎧 เครื่องมือฟังทบทวนคำศัพท์ (500 คำศัพท์ ก.พ.)</h1>
+            <p class="text-gray-500 mb-6 text-sm md:text-base">รวบรวมคำศัพท์ 500 คำจากเอกสาร เพิ่ม ลบ และจัดการคำศัพท์ของคุณได้เองแบบไม่จำกัด</p>
+            
+            <div class="flex flex-wrap justify-center gap-3">
+                <button id="playAllBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-full shadow-md transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    <span id="playAllText">เล่นทั้งหมด</span>
+                </button>
+                <button id="toggleMeaningBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-5 rounded-full shadow-sm transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                    <span id="toggleMeaningText">ซ่อนคำแปล</span>
+                </button>
+                <button id="toggleAddSectionBtn" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-5 rounded-full shadow-sm transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>จัดการคำศัพท์</span>
+                </button>
+            </div>
+            
+            <div class="mt-4 text-xs text-gray-400">
+                มีคำศัพท์ทั้งหมด <span id="vocabCountDisplay" class="font-bold text-blue-500">0</span> คำ
+            </div>
+        </div>
+
+        <!-- Section: จัดการคำศัพท์ (ซ่อน/แสดงได้) -->
+        <div id="addSection" class="bg-white rounded-2xl shadow-sm p-6 mb-6 hidden border border-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">➕ เพิ่มคำศัพท์ใหม่</h2>
+                <button id="resetDefaultBtn" class="text-sm text-red-500 hover:text-red-700 underline">ล้างข้อมูลและคืนค่า 500 คำเริ่มต้น</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- เพิ่มทีละคำ -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 class="font-semibold text-gray-700 mb-3 text-sm">เพิ่มทีละคำ</h3>
+                    <form id="addSingleForm" class="flex flex-col gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">คำศัพท์ภาษาอังกฤษ</label>
+                            <input type="text" id="newEn" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 outline-none" placeholder="เช่น elephant">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">คำแปลภาษาไทย</label>
+                            <input type="text" id="newTh" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 outline-none" placeholder="เช่น ช้าง">
+                        </div>
+                        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors mt-1">
+                            บันทึกคำศัพท์
+                        </button>
+                    </form>
+                </div>
+
+                <!-- เพิ่มทีละหลายคำ (Bulk Add) -->
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <h3 class="font-semibold text-gray-700 mb-3 text-sm">เพิ่มทีละหลายคำ (คัดลอกมาวาง)</h3>
+                    <p class="text-xs text-gray-500 mb-2">รูปแบบ: <code class="bg-gray-200 px-1 rounded text-red-500">คำศัพท์ = คำแปล</code> (ขึ้นบรรทัดใหม่สำหรับคำต่อไป)</p>
+                    <textarea id="bulkInput" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 outline-none text-sm font-mono" placeholder="cat = แมว&#10;dog = หมา&#10;bird = นก"></textarea>
+                    <button id="bulkAddBtn" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg font-medium transition-colors mt-3">
+                        นำเข้าคำศัพท์ทั้งหมด
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-6 relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input type="text" id="searchInput" class="block w-full pl-11 pr-4 py-3.5 border border-gray-300 rounded-2xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm transition-all" placeholder="ค้นหาคำศัพท์อังกฤษ หรือ คำแปลภาษาไทย...">
+        </div>
+
+        <!-- Vocabulary Grid -->
+        <div id="vocabGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-10">
+            <!-- Cards will be injected here by JS -->
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 flex items-center gap-2">
+        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span id="toastMsg">บันทึกสำเร็จ</span>
+    </div>
+
+    <!-- Mini Player (โผล่ขึ้นตอนกำลังเล่นเสียง) -->
+    <div id="miniPlayer" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transform translate-y-full transition-transform duration-300 z-40">
+        <div class="max-w-5xl mx-auto px-4 pt-2.5 pb-3 md:px-6">
+            <div class="w-full bg-gray-100 rounded-full h-1 mb-3 overflow-hidden">
+                <div id="miniPlayerProgressBar" class="bg-blue-600 h-1 rounded-full transition-all duration-300" style="width:0%"></div>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs text-gray-400 mb-0.5" id="miniPlayerCounter">คำที่ 0 / 0</p>
+                    <p class="font-bold text-gray-800 truncate leading-tight" id="miniPlayerEn">-</p>
+                    <p class="text-sm text-gray-500 truncate leading-tight" id="miniPlayerTh">-</p>
+                </div>
+                <div class="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                    <button id="miniPrevBtn" title="คำก่อนหน้า" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors">
+                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02zm6 0a.75.75 0 01-.02 1.06L14.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="miniPauseBtn" title="หยุดชั่วคราว / เล่นต่อ" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors">
+                        <svg id="miniIconPause" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M6 4h3v12H6V4zm5 0h3v12h-3V4z"></path></svg>
+                        <svg id="miniIconPlay" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M6 4l10 6-10 6V4z"></path></svg>
+                    </button>
+                    <button id="miniNextBtn" title="คำถัดไป" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors">
+                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02zm6 0a.75.75 0 01.02-1.06L17.168 10 13.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"></path></svg>
+                    </button>
+                    <button id="miniCloseBtn" title="ปิดเสียง" class="w-9 h-9 md:w-10 md:h-10 rounded-full bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors ml-1">
+                        <svg class="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ข้อมูล 500 คำศัพท์ (ก.พ.)
+        const defaultVocabData = [
+            // คำกริยา (Verbs)
+            {en:"Accept",th:"ยอมรับ"},{en:"Achieve",th:"บรรลุ"},{en:"Advise",th:"ให้คำแนะนำ"},{en:"Agree",th:"เห็นด้วย"},{en:"Announce",th:"ประกาศ"},{en:"Appear",th:"ปรากฏ"},{en:"Apply",th:"สมัคร / ใช้"},{en:"Argue",th:"โต้เถียง"},{en:"Arrange",th:"จัดเตรียม"},{en:"Arrive",th:"มาถึง"},
+            {en:"Assume",th:"สันนิษฐาน"},{en:"Attempt",th:"พยายาม"},{en:"Avoid",th:"หลีกเลี่ยง"},{en:"Believe",th:"เชื่อ"},{en:"Borrow",th:"ขอยืม"},{en:"Calculate",th:"คำนวณ"},{en:"Choose",th:"เลือก"},{en:"Compare",th:"เปรียบเทียบ"},{en:"Complain",th:"บ่น"},{en:"Complete",th:"ทำให้เสร็จ"},
+            {en:"Confirm",th:"ยืนยัน"},{en:"Consider",th:"พิจารณา"},{en:"Continue",th:"ดำเนินต่อไป"},{en:"Convince",th:"ทำให้เชื่อมั่น"},{en:"Cooperate",th:"ร่วมมือ"},{en:"Create",th:"สร้าง"},{en:"Decide",th:"ตัดสินใจ"},{en:"Decrease",th:"ลดลง"},{en:"Deliver",th:"ส่งมอบ"},{en:"Describe",th:"อธิบาย"},
+            {en:"Develop",th:"พัฒนา"},{en:"Discuss",th:"อภิปราย"},{en:"Discover",th:"ค้นพบ"},{en:"Distribute",th:"แจกจ่าย"},{en:"Earn",th:"ได้รับ (เงิน)"},{en:"Encourage",th:"ให้กำลังใจ"},{en:"Endorse",th:"รับรอง / สนับสนุน"},{en:"Ensure",th:"ทำให้มั่นใจ"},{en:"Establish",th:"ก่อตั้ง"},{en:"Estimate",th:"ประมาณการ"},
+            {en:"Expand",th:"ขยาย"},{en:"Explain",th:"อธิบาย"},{en:"Express",th:"แสดงออก"},{en:"Extend",th:"ขยายออก"},{en:"Fail",th:"ล้มเหลว"},{en:"Focus",th:"มุ่งเน้น"},{en:"Follow",th:"ติดตาม"},{en:"Generate",th:"สร้าง"},{en:"Identify",th:"ระบุ"},{en:"Illustrate",th:"แสดงให้เห็น"},
+            {en:"Implement",th:"ดำเนินการ"},{en:"Improve",th:"ปรับปรุง"},{en:"Include",th:"รวมถึง"},{en:"Indicate",th:"ชี้ให้เห็น"},{en:"Influence",th:"มีอิทธิพลต่อ"},{en:"Inform",th:"แจ้งให้ทราบ"},{en:"Introduce",th:"แนะนำ"},{en:"Investigate",th:"สืบสวน"},{en:"Involve",th:"เกี่ยวข้อง"},{en:"Justify",th:"ให้เหตุผล / พิสูจน์"},
+            {en:"Maintain",th:"รักษา / คงไว้"},{en:"Manage",th:"จัดการ"},{en:"Measure",th:"วัด"},{en:"Mention",th:"กล่าวถึง"},{en:"Negotiate",th:"เจรจา"},{en:"Notify",th:"แจ้งให้ทราบ"},{en:"Observe",th:"สังเกต"},{en:"Obtain",th:"ได้รับ"},{en:"Offer",th:"เสนอ"},{en:"Operate",th:"ดำเนินการ / ใช้งาน"},
+            {en:"Organize",th:"จัดระเบียบ"},{en:"Participate",th:"เข้าร่วม"},{en:"Perform",th:"แสดง / ปฏิบัติ"},{en:"Persuade",th:"ชักจูง"},{en:"Plan",th:"วางแผน"},{en:"Predict",th:"ทำนาย"},{en:"Prevent",th:"ป้องกัน"},{en:"Process",th:"ดำเนิน / ประมวลผล"},{en:"Propose",th:"เสนอแนะ"},{en:"Protect",th:"ปกป้อง"},
+            {en:"Provide",th:"จัดหา / ให้"},{en:"Purchase",th:"ซื้อ"},{en:"Recommend",th:"แนะนำ"},{en:"Reduce",th:"ลดลง"},{en:"Refer",th:"อ้างถึง"},{en:"Reflect",th:"สะท้อน"},{en:"Refuse",th:"ปฏิเสธ"},{en:"Register",th:"ลงทะเบียน"},{en:"Relate",th:"เกี่ยวข้อง"},{en:"Release",th:"ปล่อย / เปิดตัว"},
+            {en:"Remove",th:"ลบ / เอาออก"},{en:"Replace",th:"แทนที่"},{en:"Report",th:"รายงาน"},{en:"Represent",th:"เป็นตัวแทน"},{en:"Require",th:"ต้องการ"},{en:"Respond",th:"ตอบกลับ"},{en:"Retain",th:"รักษาไว้"},{en:"Revise",th:"แก้ไข / ทบทวน"},{en:"Suggest",th:"แนะนำ"},{en:"Verify",th:"ตรวจสอบ / ยืนยัน"},
+            {en:"Adapt",th:"ปรับตัว"},{en:"Approve",th:"อนุมัติ"},{en:"Assist",th:"ช่วยเหลือ"},{en:"Attain",th:"บรรลุ"},{en:"Balance",th:"รักษาสมดุล"},{en:"Behave",th:"ประพฤติตัว"},{en:"Categorize",th:"จัดประเภท"},{en:"Certify",th:"รับรอง"},{en:"Clarify",th:"ชี้แจง"},{en:"Collaborate",th:"ร่วมมือ"},
+            {en:"Commit",th:"มุ่งมั่น"},{en:"Compute",th:"คำนวณ"},{en:"Contribute",th:"มีส่วนร่วม"},{en:"Coordinate",th:"ประสานงาน"},{en:"Critique",th:"วิจารณ์"},{en:"Declare",th:"ประกาศ"},
+            // คำนาม (Nouns)
+            {en:"Ability",th:"ความสามารถ"},{en:"Access",th:"การเข้าถึง"},{en:"Account",th:"บัญชี / การคำนวณ"},{en:"Achievement",th:"ความสำเร็จ"},{en:"Agreement",th:"ข้อตกลง"},{en:"Analysis",th:"การวิเคราะห์"},{en:"Application",th:"การสมัคร / การประยุกต์ใช้"},{en:"Approval",th:"การอนุมัติ"},{en:"Argument",th:"การโต้แย้ง"},{en:"Arrangement",th:"การจัดเตรียม"},
+            {en:"Assessment",th:"การประเมิน"},{en:"Assistance",th:"ความช่วยเหลือ"},{en:"Association",th:"สมาคม / ความเกี่ยวข้อง"},{en:"Attention",th:"ความสนใจ"},{en:"Authority",th:"อำนาจ"},{en:"Benefit",th:"ประโยชน์"},{en:"Budget",th:"งบประมาณ"},{en:"Candidate",th:"ผู้สมัคร"},{en:"Capacity",th:"ขีดความสามารถ"},{en:"Challenge",th:"ความท้าทาย"},
+            {en:"Change",th:"การเปลี่ยนแปลง"},{en:"Choice",th:"ทางเลือก"},{en:"Collaboration",th:"ความร่วมมือ"},{en:"Commitment",th:"ความมุ่งมั่น"},{en:"Communication",th:"การสื่อสาร"},{en:"Community",th:"ชุมชน"},{en:"Competition",th:"การแข่งขัน"},{en:"Complaint",th:"การร้องเรียน"},{en:"Conclusion",th:"ข้อสรุป"},{en:"Condition",th:"เงื่อนไข"},
+            {en:"Conference",th:"การประชุม"},{en:"Confidence",th:"ความมั่นใจ"},{en:"Confirmation",th:"การยืนยัน"},{en:"Connection",th:"การเชื่อม / ความสัมพันธ์"},{en:"Consequence",th:"ผลลัพธ์ / ผลกระทบ"},{en:"Consideration",th:"การพิจารณา"},{en:"Construction",th:"การก่อสร้าง"},{en:"Contribution",th:"การมีส่วนร่วม"},{en:"Cooperation",th:"ความร่วมมือ"},{en:"Coordination",th:"การประสานงาน"},
+            {en:"Cost",th:"ต้นทุน / ค่าใช้จ่าย"},{en:"Creativity",th:"ความคิดสร้างสรรค์"},{en:"Credit",th:"เครดิต / สินเชื่อ"},{en:"Criticism",th:"การวิจารณ์"},{en:"Culture",th:"วัฒนธรรม"},{en:"Customer",th:"ลูกค้า"},{en:"Decision",th:"การตัดสินใจ"},{en:"Delivery",th:"การส่งมอบ"},{en:"Demand",th:"ความต้องการ"},{en:"Demonstration",th:"การสาธิต"},
+            {en:"Description",th:"คำอธิบาย"},{en:"Design",th:"การออกแบบ"},{en:"Determination",th:"ความมุ่งมั่น"},{en:"Development",th:"การพัฒนา"},{en:"Difference",th:"ความแตกต่าง"},{en:"Direction",th:"ทิศทาง"},{en:"Discussion",th:"การอภิปราย"},{en:"Distribution",th:"การแจกจ่าย"},{en:"Education",th:"การศึกษา"},{en:"Effect",th:"ผลกระทบ"},
+            {en:"Efficiency",th:"ประสิทธิภาพ"},{en:"Effort",th:"ความพยายาม"},{en:"Employee",th:"พนักงาน"},{en:"Employer",th:"นายจ้าง"},{en:"Energy",th:"พลังงาน"},{en:"Environment",th:"สภาพแวดล้อม"},{en:"Equipment",th:"อุปกรณ์"},{en:"Error",th:"ข้อผิดพลาด"},{en:"Evidence",th:"หลักฐาน"},{en:"Examination",th:"การสอบ / ตรวจสอบ"},
+            {en:"Example",th:"ตัวอย่าง"},{en:"Experience",th:"ประสบการณ์"},{en:"Explanation",th:"คำอธิบาย"},{en:"Factor",th:"ปัจจัย"},{en:"Failure",th:"ความล้มเหลว"},{en:"Feedback",th:"ความคิดเห็น"},{en:"Finance",th:"การเงิน"},{en:"Foundation",th:"รากฐาน"},{en:"Function",th:"หน้าที่ / การทำงาน"},{en:"Goal",th:"เป้าหมาย"},
+            {en:"Growth",th:"การเติบโต"},{en:"Guidance",th:"คำแนะนำ"},{en:"Impact",th:"ผลกระทบ"},{en:"Implementation",th:"การดำเนินการ"},{en:"Improvement",th:"การปรับปรุง"},{en:"Industry",th:"อุตสาหกรรม"},{en:"Information",th:"ข้อมูล"},{en:"Initiative",th:"ความริเริ่ม"},{en:"Innovation",th:"นวัตกรรม"},{en:"Instruction",th:"คำสั่ง / คำแนะนำ"},
+            {en:"Interaction",th:"ปฏิสัมพันธ์"},{en:"Interest",th:"ความสนใจ"},{en:"Investigation",th:"การสืบสวน"},{en:"Investment",th:"การลงทุน"},{en:"Issue",th:"ประเด็น / ปัญหา"},{en:"Judgment",th:"การตัดสินใจ"},{en:"Knowledge",th:"ความรู้"},{en:"Leadership",th:"ภาวะผู้นำ"},{en:"Legislation",th:"กฎหมาย / การออกกฎ"},{en:"Opportunity",th:"โอกาส"},
+            {en:"Advancement",th:"ความก้าวหน้า"},{en:"Apprehension",th:"ความหวาดหวั่น"},{en:"Breakthrough",th:"ความก้าวหน้าครั้งใหญ่"},{en:"Compliance",th:"การปฏิบัติตามกฎระเบียบ"},{en:"Complication",th:"ความซับซ้อน"},{en:"Consensus",th:"ความเห็นพ้องต้องกัน"},{en:"Controversy",th:"ประเด็นถกเถียง"},{en:"Credibility",th:"ความน่าเชื่อถือ"},{en:"Dilemma",th:"สถานการณ์ลำบาก"},
+            // คำคุณศัพท์ (Adjectives)
+            {en:"Accurate",th:"แม่นยำ"},{en:"Active",th:"กระตือรือร้น / คล่องแคล่ว"},{en:"Adequate",th:"เพียงพอ"},{en:"Affordable",th:"ราคาจับต้องได้"},{en:"Ambitious",th:"ทะเยอทะยาน"},{en:"Appropriate",th:"เหมาะสม"},{en:"Available",th:"มีอยู่ / ใช้ได้"},{en:"Beneficial",th:"เป็นประโยชน์"},{en:"Capable",th:"มีความสามารถ"},{en:"Careful",th:"รอบคอบ / ระมัดระวัง"},
+            {en:"Certain",th:"แน่นอน"},{en:"Clear",th:"ชัดเจน"},{en:"Collaborative",th:"ร่วมมือกัน"},{en:"Comfortable",th:"สะดวกสบาย"},{en:"Common",th:"ทั่วไป"},{en:"Competitive",th:"สามารถแข่งขันได้"},{en:"Confident",th:"มั่นใจ"},{en:"Consistent",th:"สม่ำเสมอ"},{en:"Convenient",th:"สะดวก"},{en:"Correct",th:"ถูกต้อง"},
+            {en:"Creative",th:"สร้างสรรค์"},{en:"Critical",th:"วิพากษ์วิจารณ์ / สำคัญ"},{en:"Crucial",th:"สำคัญอย่างยิ่ง"},{en:"Curious",th:"อยากรู้อยากเห็น"},{en:"Current",th:"ปัจจุบัน"},{en:"Decisive",th:"เด็ดขาด / กล้าตัดสินใจ"},{en:"Dedicated",th:"ทุ่มเท"},{en:"Definite",th:"แน่นอน / ชัดเจน"},{en:"Deliberate",th:"รอบคอบ / ตั้งใจ"},{en:"Dependable",th:"พึ่งพาได้"},
+            {en:"Determined",th:"มุ่งมั่น"},{en:"Difficult",th:"ยาก"},{en:"Different",th:"แตกต่าง"},{en:"Diligent",th:"ขยันหมั่นเพียร"},{en:"Direct",th:"ตรงไปตรงมา"},{en:"Distinct",th:"ชัดเจน / แตกต่าง"},{en:"Diverse",th:"หลากหลาย"},{en:"Dramatic",th:"น่าทึ่ง / น่าตื่นเต้น"},{en:"Effective",th:"มีประสิทธิผล"},{en:"Efficient",th:"มีประสิทธิภาพ"},
+            {en:"Elaborate",th:"ละเอียด / ซับซ้อน"},{en:"Encouraging",th:"ให้กำลังใจ"},{en:"Enthusiastic",th:"กระตือรือร้น"},{en:"Essential",th:"จำเป็น"},{en:"Ethical",th:"มีจริยธรรม"},{en:"Evident",th:"ชัดเจน"},{en:"Excellent",th:"ยอดเยี่ยม"},{en:"Exclusive",th:"พิเศษ / เฉพาะ"},{en:"Familiar",th:"คุ้นเคย"},{en:"Flexible",th:"ยืดหยุ่น"},
+            {en:"Formal",th:"เป็นทางการ"},{en:"Fundamental",th:"เป็นพื้นฐาน"},{en:"Generous",th:"ใจกว้าง"},{en:"Genuine",th:"แท้จริง / จริงใจ"},{en:"Helpful",th:"เป็นประโยชน์"},{en:"Honest",th:"ซื่อสัตย์"},{en:"Impressive",th:"น่าประทับใจ"},{en:"Independent",th:"เป็นอิสระ"},{en:"Informative",th:"ให้ข้อมูล"},{en:"Innovative",th:"สร้างสรรค์ / นวัตกรรมใหม่"},
+            {en:"Inspired",th:"ได้รับแรงบันดาลใจ"},{en:"Intellectual",th:"เกี่ยวกับสติปัญญา"},{en:"Intelligent",th:"ฉลาด"},{en:"Interactive",th:"มีปฏิสัมพันธ์"},{en:"Interesting",th:"น่าสนใจ"},{en:"Logical",th:"มีเหตุผล"},{en:"Loyal",th:"ภักดี"},{en:"Massive",th:"มหาศาล"},{en:"Meaningful",th:"มีความหมาย"},{en:"Memorable",th:"น่าจดจำ"},
+            {en:"Modern",th:"ทันสมัย"},{en:"Motivated",th:"มีแรงจูงใจ"},{en:"Necessary",th:"จำเป็น"},{en:"Notable",th:"โดดเด่น / น่าสังเกต"},{en:"Objective",th:"เป็นกลาง / ไม่ลำเอียง"},{en:"Organized",th:"เป็นระเบียบ"},{en:"Outstanding",th:"ยอดเยี่ยม"},{en:"Passionate",th:"มีความหลงใหล"},{en:"Patient",th:"อดทน"},{en:"Perfect",th:"สมบูรณ์แบบ"},
+            {en:"Persuasive",th:"สามารถโน้มน้าวใจได้"},{en:"Practical",th:"ปฏิบัติได้จริง"},{en:"Productive",th:"มีประสิทธิภาพ"},{en:"Professional",th:"เป็นมืออาชีพ"},{en:"Reliable",th:"เชื่อถือได้"},{en:"Resilient",th:"ฟื้นตัวได้เร็ว / แข็งแกร่ง"},{en:"Responsible",th:"มีความรับผิดชอบ"},{en:"Secure",th:"ปลอดภัย"},{en:"Sensible",th:"มีเหตุผล"},{en:"Stable",th:"มั่นคง"},
+            {en:"Strategic",th:"มีกลยุทธ์"},{en:"Strong",th:"แข็งแกร่ง"},{en:"Suitable",th:"เหมาะสม"},{en:"Supportive",th:"ให้การสนับสนุน"},{en:"Thoughtful",th:"รอบคอบ / ใส่ใจ"},{en:"Trustworthy",th:"ไว้วางใจได้"},{en:"Useful",th:"มีประโยชน์"},{en:"Valuable",th:"มีคุณค่า"},{en:"Versatile",th:"อเนกประสงค์"},{en:"Well-prepared",th:"เตรียมตัวมาอย่างดี"},
+            // คำกริยาวิเศษณ์ (Adverbs)
+            {en:"Accurately",th:"อย่างแม่นยำ"},{en:"Actively",th:"อย่างกระตือรือร้น"},{en:"Adequately",th:"อย่างเพียงพอ"},{en:"Aggressively",th:"อย่างแข็งขัน"},{en:"Anxiously",th:"อย่างกังวล"},{en:"Apparently",th:"อย่างชัดเจน / ดูเหมือนว่า"},{en:"Appropriately",th:"อย่างเหมาะสม"},{en:"Badly",th:"อย่างเลวร้าย / อย่างแย่"},{en:"Barely",th:"แทบจะไม่"},{en:"Boldly",th:"อย่างกล้าหาญ"},
+            {en:"Briefly",th:"อย่างสั้น ๆ / อย่างกระชับ"},{en:"Carefully",th:"อย่างระมัดระวัง"},{en:"Certainly",th:"อย่างแน่นอน"},{en:"Clearly",th:"อย่างชัดเจน"},{en:"Closely",th:"อย่างใกล้ชิด"},{en:"Comfortably",th:"อย่างสะดวกสบาย"},{en:"Completely",th:"อย่างสมบูรณ์"},{en:"Confidently",th:"อย่างมั่นใจ"},{en:"Consistently",th:"อย่างสม่ำเสมอ"},{en:"Conveniently",th:"อย่างสะดวก"},
+            {en:"Correctly",th:"อย่างถูกต้อง"},{en:"Creatively",th:"อย่างสร้างสรรค์"},{en:"Critically",th:"อย่างจริงจัง"},{en:"Curiously",th:"อย่างอยากรู้อยากเห็น"},{en:"Decisively",th:"อย่างเด็ดขาด"},{en:"Deliberately",th:"อย่างจงใจ / อย่างไตร่ตรอง"},{en:"Diligently",th:"อย่างขยันขันแข็ง"},{en:"Directly",th:"อย่างตรงไปตรงมา"},{en:"Dramatically",th:"อย่างมาก / อย่างน่าทึ่ง"},{en:"Effectively",th:"อย่างมีประสิทธิผล"},
+            {en:"Efficiently",th:"อย่างมีประสิทธิภาพ"},{en:"Elegantly",th:"อย่างสง่างาม"},{en:"Encouragingly",th:"อย่างให้กำลังใจ"},{en:"Enthusiastically",th:"อย่างกระตือรือร้น"},{en:"Equally",th:"อย่างเท่าเทียมกัน"},{en:"Especially",th:"โดยเฉพาะอย่างยิ่ง"},{en:"Ethically",th:"อย่างมีจริยธรรม"},{en:"Evidently",th:"อย่างเห็นได้ชัด"},{en:"Excellently",th:"อย่างยอดเยี่ยม"},{en:"Exclusively",th:"โดยเฉพาะ / อย่างพิเศษ"},
+            {en:"Extensively",th:"อย่างกว้างขวาง"},{en:"Fairly",th:"อย่างยุติธรรม / อย่างพอควร"},{en:"Familiarly",th:"อย่างคุ้นเคย"},{en:"Firmly",th:"อย่างหนักแน่น"},{en:"Flexibly",th:"อย่างยืดหยุ่น"},{en:"Fortunately",th:"อย่างโชคดี"},{en:"Frequently",th:"อย่างบ่อยครั้ง"},{en:"Generously",th:"อย่างใจกว้าง"},{en:"Genuinely",th:"อย่างจริงใจ"},{en:"Gradually",th:"อย่างค่อยเป็นค่อยไป"},
+            {en:"Greatly",th:"อย่างมาก"},{en:"Hastily",th:"อย่างเร่งรีบ"},{en:"Highly",th:"อย่างมาก / อย่างสูง"},{en:"Honestly",th:"อย่างซื่อสัตย์"},{en:"Hopefully",th:"อย่างมีความหวัง"},{en:"Immediately",th:"โดยทันที"},{en:"Independently",th:"อย่างเป็นอิสระ"},{en:"Indirectly",th:"อย่างอ้อม ๆ"},{en:"Inevitably",th:"อย่างหลีกเลี่ยงไม่ได้"},{en:"Informally",th:"อย่างไม่เป็นทางการ"},
+            {en:"Instantly",th:"โดยทันที"},{en:"Intensely",th:"อย่างเข้มข้น"},{en:"Interestingly",th:"อย่างน่าสนใจ"},{en:"Internally",th:"ภายใน"},{en:"Jointly",th:"ร่วมกัน"},{en:"Joyfully",th:"อย่างมีความสุข"},{en:"Justly",th:"อย่างยุติธรรม"},{en:"Knowingly",th:"อย่างรู้เท่าทัน"},{en:"Largely",th:"ส่วนใหญ่"},{en:"Lawfully",th:"อย่างถูกกฎหมาย"},
+            {en:"Lightly",th:"อย่างเบา ๆ"},{en:"Logically",th:"อย่างมีเหตุผล"},{en:"Lovingly",th:"อย่างรักใคร่"},{en:"Magically",th:"อย่างมหัศจรรย์"},{en:"Majestically",th:"อย่างสง่างาม"},{en:"Meaningfully",th:"อย่างมีความหมาย"},{en:"Mechanically",th:"อย่างอัตโนมัติ / อย่างกลไก"},{en:"Mentally",th:"ทางจิตใจ"},{en:"Mildly",th:"อย่างอ่อนโยน"},{en:"Moderately",th:"อย่างพอประมาณ"},
+            {en:"Naturally",th:"โดยธรรมชาติ"},{en:"Neatly",th:"อย่างเรียบร้อย"},{en:"Necessarily",th:"อย่างจำเป็น"},{en:"Negatively",th:"ในแง่ลบ"},{en:"Notably",th:"อย่างโดดเด่น"},{en:"Obediently",th:"อย่างเชื่อฟัง"},{en:"Objectively",th:"อย่างเป็นกลาง"},{en:"Openly",th:"อย่างเปิดเผย"},{en:"Optimally",th:"อย่างเหมาะสมที่สุด"},{en:"Ordinarily",th:"โดยปกติ"},
+            {en:"Outrageously",th:"อย่างเหลือเชื่อ / อย่างเกินไป"},{en:"Passionately",th:"อย่างหลงใหล"},{en:"Patiently",th:"อย่างอดทน"},{en:"Peacefully",th:"อย่างสงบ"},{en:"Perfectly",th:"อย่างสมบูรณ์แบบ"},{en:"Persistently",th:"อย่างไม่ลดละ"},{en:"Personally",th:"โดยส่วนตัว"},{en:"Playfully",th:"อย่างขี้เล่น"},{en:"Politely",th:"อย่างสุภาพ"},{en:"Positively",th:"ในแง่บวก"},
+            // คำบุพบท (Prepositions)
+            {en:"About",th:"เกี่ยวกับ"},{en:"Above",th:"เหนือ / ข้างบน"},{en:"Across",th:"ข้าม"},{en:"After",th:"หลังจาก"},{en:"Against",th:"ต่อต้าน / ขัดกับ"},{en:"Along",th:"ตามแนว / ไปพร้อมกับ"},{en:"Among",th:"ท่ามกลาง"},{en:"Around",th:"รอบ ๆ"},{en:"At",th:"ที่ / ณ"},{en:"Before",th:"ก่อน"},
+            {en:"Behind",th:"ข้างหลัง"},{en:"Below",th:"ข้างล่าง"},{en:"Beneath",th:"ใต้"},{en:"Beside",th:"ข้าง ๆ"},{en:"Between",th:"ระหว่าง"},{en:"Beyond",th:"เกิน / พ้น"},{en:"By",th:"โดย / ข้าง"},{en:"During",th:"ในระหว่าง"},{en:"Except",th:"ยกเว้น"},{en:"For",th:"สำหรับ"},
+            {en:"From",th:"จาก"},{en:"Inside",th:"ข้างใน"},{en:"Into",th:"เข้าไปใน"},{en:"Like",th:"เหมือน / คล้ายกับ"},{en:"Of",th:"ของ"},{en:"On",th:"บน"},{en:"Onto",th:"ไปบน"},{en:"Opposite",th:"ตรงข้าม"},{en:"Over",th:"เหนือ / ข้าม"},{en:"Regarding",th:"เกี่ยวกับ"},
+            {en:"Through",th:"ผ่าน"},{en:"Throughout",th:"ตลอด"},{en:"Toward",th:"ไปทาง"},{en:"Under",th:"ใต้"},{en:"Underneath",th:"ข้างใต้"},{en:"Until",th:"จนถึง"},{en:"Upon",th:"บน / เหนือ"},{en:"Within",th:"ภายใน"},{en:"Without",th:"ไม่มี / ปราศจาก"},{en:"Via",th:"ผ่านทาง"},
+            // คำสันธาน (Conjunctions)
+            {en:"And",th:"และ"},{en:"As",th:"ในฐานะ / ตามที่"},{en:"Because",th:"เพราะ"},{en:"But",th:"แต่"},{en:"Either",th:"อย่างใดอย่างหนึ่ง"},{en:"Even though",th:"ถึงแม้ว่า"},{en:"However",th:"อย่างไรก็ตาม"},{en:"If",th:"ถ้า"},{en:"Neither",th:"ไม่ทั้งสอง"},{en:"Nor",th:"และไม่"},
+            {en:"Once",th:"เมื่อ / ครั้งหนึ่ง"},{en:"Or",th:"หรือ"},{en:"Rather",th:"ค่อนข้าง / แต่ทว่า"},{en:"Since",th:"ตั้งแต่ / เพราะว่า"},{en:"So",th:"ดังนั้น"},{en:"Then",th:"จากนั้น"},{en:"Therefore",th:"ดังนั้น / เพราะฉะนั้น"},{en:"Unless",th:"เว้นแต่ว่า"},{en:"Until",th:"จนกระทั่ง"},{en:"While",th:"ขณะที่ / ในขณะที่"},
+            {en:"Whereas",th:"ในขณะที่ / ตรงกันข้ามกับ"},{en:"Whether",th:"ไม่ว่าจะ"},{en:"Yet",th:"อย่างไรก็ตาม / แต่"},{en:"Though",th:"แม้ว่า"},{en:"Although",th:"แม้ว่าจะ"},{en:"Even if",th:"ถึงแม้ว่า"},{en:"Provided that",th:"หากว่า / ตราบเท่าที่มีเงื่อนไข"},{en:"Given that",th:"เมื่อพิจารณาว่า"},{en:"As long as",th:"ตราบเท่าที่"},{en:"Nonetheless",th:"ถึงอย่างนั้น"},
+            {en:"Nevertheless",th:"ถึงกระนั้น"},{en:"In addition",th:"นอกจากนี้"},{en:"Moreover",th:"ยิ่งไปกว่านั้น"},{en:"Furthermore",th:"ยิ่งไปกว่านั้น"},{en:"Consequently",th:"ดังนั้น / เป็นผลให้"},{en:"Accordingly",th:"ดังนั้น / ตามนั้น"},{en:"Subsequently",th:"ต่อมา / ภายหลัง"},{en:"Conversely",th:"ในทางตรงกันข้าม"},{en:"Regardless",th:"ไม่ว่าอย่างไรก็ตาม"},{en:"Albeit",th:"แม้ว่า"},
+            {en:"Thereafter",th:"หลังจากนั้น"},{en:"Hence",th:"ดังนั้น / เพราะเหตุนี้"},{en:"Thus",th:"ดังนั้น / ด้วยเหตุนี้"},{en:"Notwithstanding",th:"แม้ว่า / อย่างไรก็ตาม"},{en:"Inasmuch as",th:"เนื่องจาก / เพราะว่า"},{en:"Alike",th:"เหมือนกัน"},{en:"Likewise",th:"เช่นเดียวกัน"},{en:"Such as",th:"เช่น"},{en:"That is",th:"นั่นคือ"},{en:"Even so",th:"ถึงอย่างนั้น"},
+            {en:"On the other hand",th:"ในทางกลับกัน"},{en:"By the same token",th:"ในทำนองเดียวกัน"},{en:"In contrast",th:"ตรงกันข้าม"},{en:"Differently",th:"แตกต่างกัน"},{en:"Not only that",th:"ไม่เพียงแค่นั้น"},{en:"In fact",th:"อันที่จริง"},{en:"As a result",th:"เป็นผลให้"},{en:"For example",th:"ตัวอย่างเช่น"},{en:"For instance",th:"ตัวอย่างเช่น"},{en:"As well as",th:"รวมถึง / เช่นเดียวกับ"},
+            {en:"Whether or not",th:"ไม่ว่าจะหรือไม่"},{en:"Just as",th:"เช่นเดียวกับ"},{en:"In case",th:"เผื่อว่า"},{en:"Instead",th:"แทนที่"},{en:"In the meantime",th:"ในระหว่างนั้น"},{en:"If only",th:"ถ้าเพียงแต่"},{en:"Meanwhile",th:"ในขณะเดียวกัน"},{en:"So that",th:"เพื่อที่"},{en:"No matter what",th:"ไม่ว่าอะไรจะเกิดขึ้น"},{en:"Regardless of",th:"ไม่คำนึงถึง"},
+            {en:"Seeing that",th:"เมื่อเห็นว่า / เนื่องจาก"},{en:"Supposing",th:"สมมติว่า"},{en:"Though this",th:"ถึงแม้ว่า"},{en:"Whereby",th:"ซึ่งโดยวิธีนั้น"},{en:"Though it",th:"แม้ว่ามันจะเป็นเช่นนั้น"},{en:"Even though that",th:"ถึงแม้ว่าจะเป็นเช่นนั้น"},{en:"On condition that",th:"โดยมีเงื่อนไขว่า"}
+        ];
+
+        // เปลี่ยนชื่อ KEY ใหม่เพื่อให้โหลดข้อมูล 500 คำใหม่ แทนของเดิม
+        const STORAGE_KEY = 'custom_vocab_500_app';
+        let vocabData = [];
+
+        // โหลดข้อมูลจาก Local Storage
+        function loadData() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                vocabData = JSON.parse(savedData);
+            } else {
+                // ถ้าไม่มีข้อมูล ให้ใช้ข้อมูลตั้งต้น
+                vocabData = [...defaultVocabData];
+                saveData(false); // บันทึกแบบไม่แสดงแจ้งเตือน
+            }
+        }
+
+        // บันทึกข้อมูลลง Local Storage
+        function saveData(showNotification = true) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(vocabData));
+            updateFilteredData();
+            renderCards();
+            updateCount();
+            if(showNotification) showToast("บันทึกข้อมูลเรียบร้อยแล้ว");
+        }
+
+        // สถานะแอปพลิเคชัน
+        let isPlayingAll = false;
+        let isPaused = false;          // หยุดชั่วคราว (จาก mini player)
+        let isMeaningHidden = false;
+        let filteredData = [];
+        let currentFilterIndex = -1;   // ตำแหน่งคำที่กำลังเล่นอยู่ใน filteredData
+        let playSessionId = 0;         // ใช้ยกเลิก callback เก่าเมื่อกดข้าม/ปิด/เริ่มลำดับใหม่
+
+        // Elements
+        const vocabGrid = document.getElementById('vocabGrid');
+        const searchInput = document.getElementById('searchInput');
+        const playAllBtn = document.getElementById('playAllBtn');
+        const playAllText = document.getElementById('playAllText');
+        const toggleMeaningBtn = document.getElementById('toggleMeaningBtn');
+        const toggleMeaningText = document.getElementById('toggleMeaningText');
+        const vocabCountDisplay = document.getElementById('vocabCountDisplay');
+
+        // Mini Player Elements
+        const miniPlayer = document.getElementById('miniPlayer');
+        const miniPlayerCounter = document.getElementById('miniPlayerCounter');
+        const miniPlayerEn = document.getElementById('miniPlayerEn');
+        const miniPlayerTh = document.getElementById('miniPlayerTh');
+        const miniPlayerProgressBar = document.getElementById('miniPlayerProgressBar');
+        const miniPrevBtn = document.getElementById('miniPrevBtn');
+        const miniNextBtn = document.getElementById('miniNextBtn');
+        const miniPauseBtn = document.getElementById('miniPauseBtn');
+        const miniCloseBtn = document.getElementById('miniCloseBtn');
+        const miniIconPause = document.getElementById('miniIconPause');
+        const miniIconPlay = document.getElementById('miniIconPlay');
+        
+        // Forms Elements
+        const addSection = document.getElementById('addSection');
+        const toggleAddSectionBtn = document.getElementById('toggleAddSectionBtn');
+        const addSingleForm = document.getElementById('addSingleForm');
+        const bulkAddBtn = document.getElementById('bulkAddBtn');
+        const resetDefaultBtn = document.getElementById('resetDefaultBtn');
+
+        // ฟังก์ชันเตรียมข้อมูลก่อนแสดงผล (กรณีมีการค้นหา)
+        function updateFilteredData() {
+            const term = searchInput.value.toLowerCase();
+            filteredData = vocabData.filter(v => 
+                v.en.toLowerCase().includes(term) || 
+                v.th.includes(term)
+            );
+        }
+
+        function updateCount() {
+            vocabCountDisplay.textContent = vocabData.length;
+        }
+
+        // ฟังก์ชันแสดงการ์ดคำศัพท์
+        function renderCards() {
+            vocabGrid.innerHTML = '';
+            
+            if(filteredData.length === 0) {
+                vocabGrid.innerHTML = `
+                    <div class="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-gray-500">ไม่พบคำศัพท์</p>
+                    </div>`;
+                return;
+            }
+
+            filteredData.forEach((item, index) => {
+                // หา Index ที่แท้จริงในอาเรย์หลัก เพื่อใช้ตอนลบข้อมูล
+                const originalIndex = vocabData.findIndex(v => v.en === item.en && v.th === item.th);
+                
+                const card = document.createElement('div');
+                card.className = `vocab-card bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between group relative overflow-hidden`;
+                card.id = `card-${originalIndex}`;
+
+                const meaningClass = isMeaningHidden ? 'blur-text' : '';
+
+                card.innerHTML = `
+                    <div class="flex-1 cursor-pointer pr-2" onclick="playSingleWord(${originalIndex})">
+                        <h3 class="text-lg font-bold text-gray-800">${item.en}</h3>
+                        <p class="text-gray-500 text-sm mt-1 th-meaning ${meaningClass}">${item.th}</p>
+                    </div>
+                    
+                    <div class="flex flex-col gap-2 z-10">
+                        <button onclick="playSingleWord(${originalIndex})" class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-colors flex-shrink-0" title="ฟังเสียง">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path></svg>
+                        </button>
+                        
+                        <!-- ปุ่มลบ (จะแสดงชัดขึ้นเมื่อ Hover) -->
+                        <button onclick="deleteWord(${originalIndex}, event)" class="w-8 h-8 rounded-full bg-red-50 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors absolute top-2 right-2 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 opacity-100" title="ลบคำศัพท์นี้">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+                vocabGrid.appendChild(card);
+            });
+        }
+
+        // การจัดการระบบเสียง (TTS)
+        // token: เลขประจำ "รอบการเล่น" ปัจจุบัน ใช้เช็คว่า callback นี้ยังใช้ได้อยู่ไหม
+        // (กันปัญหา callback เก่าค้างมาทำงานซ้อนตอนผู้ใช้กดข้าม/ปิดเสียงกลางคัน)
+        function speak(text, lang, token, onEndCallback) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = lang === 'en-US' ? 0.9 : 1.0; 
+            
+            utterance.onend = () => {
+                if (token !== playSessionId) return; // รอบเก่า ไม่ต้องทำต่อ
+                if (onEndCallback) {
+                    setTimeout(onEndCallback, 400); // เว้นระยะ 400ms 
+                }
+            };
+
+            utterance.onerror = (e) => {
+                console.error("Speech error", e);
+                if (token !== playSessionId) return;
+                if (onEndCallback) onEndCallback();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // กดเลือกคำใดก็ตาม = กระโดดไปเล่นจากคำนั้น แล้วเล่นต่อเนื่องไปเรื่อยๆ ตามลำดับที่แสดงอยู่
+        function playSingleWord(index) {
+            const item = vocabData[index];
+            if(!item) return;
+
+            const filterIndex = filteredData.findIndex(v => v.en === item.en && v.th === item.th);
+
+            if (filterIndex === -1) {
+                // คำนี้ไม่อยู่ในรายการที่กำลังกรอง/ค้นหาอยู่ -> เล่นครั้งเดียวแล้วหยุด
+                playSessionId++;
+                playVocabPair(item, index, playSessionId);
+                return;
+            }
+
+            startSequence(filterIndex);
+        }
+
+        function highlightCard(index) {
+            document.querySelectorAll('.vocab-card').forEach(c => c.classList.remove('playing'));
+            const targetCard = document.getElementById(`card-${index}`);
+            if(targetCard) {
+                targetCard.classList.add('playing');
+                // เลื่อนหน้าจอให้เห็นการ์ดที่กำลังเล่น
+                const rect = targetCard.getBoundingClientRect();
+                const isVisible = (rect.top >= 0) && (rect.bottom <= window.innerHeight);
+                if (!isVisible) {
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+
+        function playVocabPair(item, index, token, onComplete) {
+            if(!item) return; // ป้องกันบัคถ้าหาไม่เจอ
+            highlightCard(index);
+            updateMiniPlayer(item);
+            speak(item.en, 'en-US', token, () => {
+                if (token !== playSessionId) return;
+                // แปลงเครื่องหมาย / ให้เป็นคำว่า "หรือ" เพื่อให้อ่านออกเสียงได้ดีขึ้น
+                const thaiSpeechText = item.th.replace(/\s*\/\s*/g, ' หรือ ');
+                speak(thaiSpeechText, 'th-TH', token, () => {
+                    if (token !== playSessionId) return;
+                    const targetCard = document.getElementById(`card-${index}`);
+                    if(targetCard && !isPlayingAll) targetCard.classList.remove('playing');
+                    if(onComplete) onComplete();
+                });
+            });
+        }
+
+        // เริ่มเล่นต่อเนื่องจากตำแหน่ง filterIndex ใดๆ ในรายการที่กรองอยู่
+        function startSequence(filterIndex) {
+            playSessionId++; // ยกเลิก callback ของรอบก่อนหน้าทั้งหมด (ถ้ามี)
+            isPlayingAll = true;
+            isPaused = false;
+            setPauseIconUI(false);
+
+            playAllBtn.classList.replace('bg-blue-600', 'bg-red-500');
+            playAllBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-600');
+            playAllText.textContent = "หยุดเล่นอัตโนมัติ";
+
+            showMiniPlayer();
+            playNextInSequence(filterIndex, playSessionId);
+        }
+
+        // หยุดการเล่นต่อเนื่องทั้งหมด และคืนสถานะ UI
+        function stopSequence() {
+            playSessionId++; // กัน callback ที่ค้างอยู่ไม่ให้ทำงานต่อ
+            isPlayingAll = false;
+            isPaused = false;
+            window.speechSynthesis.cancel();
+
+            playAllBtn.classList.replace('bg-red-500', 'bg-blue-600');
+            playAllBtn.classList.replace('hover:bg-red-600', 'hover:bg-blue-700');
+            playAllText.textContent = "เล่นทั้งหมด";
+            document.querySelectorAll('.vocab-card').forEach(c => c.classList.remove('playing'));
+
+            hideMiniPlayer();
+            currentFilterIndex = -1;
+        }
+
+        function togglePlayAll() {
+            if (isPlayingAll) {
+                stopSequence();
+            } else if (filteredData.length > 0) {
+                startSequence(0);
+            }
+        }
+
+        function playNextInSequence(filterIndex, token) {
+            if (token !== playSessionId) return; // รอบเก่า ถูกยกเลิกไปแล้ว
+
+            if (!isPlayingAll || filterIndex >= filteredData.length) {
+                if (isPlayingAll) stopSequence();
+                return;
+            }
+
+            currentFilterIndex = filterIndex;
+            const item = filteredData[filterIndex];
+            const originalIndex = vocabData.findIndex(v => v.en === item.en && v.th === item.th);
+
+            playVocabPair(item, originalIndex, token, () => {
+                playNextInSequence(filterIndex + 1, token);
+            });
+        }
+
+        // ======= Mini Player Controls =======
+
+        function showMiniPlayer() {
+            miniPlayer.classList.remove('translate-y-full');
+            document.body.classList.add('pb-24');
+        }
+
+        function hideMiniPlayer() {
+            miniPlayer.classList.add('translate-y-full');
+            document.body.classList.remove('pb-24');
+            setPauseIconUI(false);
+        }
+
+        function updateMiniPlayer(item) {
+            miniPlayerEn.textContent = item.en;
+            miniPlayerTh.textContent = item.th;
+            const total = filteredData.length;
+            const current = currentFilterIndex + 1;
+            miniPlayerCounter.textContent = `คำที่ ${current} / ${total}`;
+            miniPlayerProgressBar.style.width = (total > 0 ? (current / total) * 100 : 0) + '%';
+            isPaused = false;
+            setPauseIconUI(false);
+        }
+
+        function setPauseIconUI(paused) {
+            miniIconPause.classList.toggle('hidden', paused);
+            miniIconPlay.classList.toggle('hidden', !paused);
+        }
+
+        miniPauseBtn.addEventListener('click', () => {
+            if (!isPlayingAll) return;
+            if (!isPaused) {
+                window.speechSynthesis.pause();
+                isPaused = true;
+                setPauseIconUI(true);
+            } else {
+                window.speechSynthesis.resume();
+                isPaused = false;
+                setPauseIconUI(false);
+            }
+        });
+
+        miniNextBtn.addEventListener('click', () => {
+            if (!isPlayingAll || currentFilterIndex >= filteredData.length - 1) return;
+            window.speechSynthesis.cancel();
+            startSequence(currentFilterIndex + 1);
+        });
+
+        miniPrevBtn.addEventListener('click', () => {
+            if (!isPlayingAll || currentFilterIndex <= 0) return;
+            window.speechSynthesis.cancel();
+            startSequence(currentFilterIndex - 1);
+        });
+
+        miniCloseBtn.addEventListener('click', () => {
+            stopSequence();
+        });
+
+        // ======= ระบบจัดการข้อมูล (CRUD) =======
+
+        // แจ้งเตือน Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = msg;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // ลบคำศัพท์
+        window.deleteWord = function(originalIndex, event) {
+            event.stopPropagation(); // ป้องกันไม่ให้ไปคลิกเล่นเสียง
+            if(isPlayingAll) togglePlayAll();
+            window.speechSynthesis.cancel();
+
+            if(confirm(`ต้องการลบคำศัพท์ "${vocabData[originalIndex].en}" ใช่หรือไม่?`)) {
+                vocabData.splice(originalIndex, 1);
+                saveData(true);
+            }
+        };
+
+        // เพิ่มคำศัพท์ (ทีละคำ)
+        addSingleForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const enInput = document.getElementById('newEn');
+            const thInput = document.getElementById('newTh');
+            
+            const enVal = enInput.value.trim();
+            const thVal = thInput.value.trim();
+
+            if(enVal && thVal) {
+                // เพิ่มไปที่ตำแหน่งบนสุด (unshift)
+                vocabData.unshift({ en: enVal, th: thVal });
+                saveData(true);
+                
+                // ล้างช่องป้อนข้อมูล
+                enInput.value = '';
+                thInput.value = '';
+                enInput.focus();
+            }
+        });
+
+        // เพิ่มทีละหลายคำ (Bulk)
+        bulkAddBtn.addEventListener('click', () => {
+            const text = document.getElementById('bulkInput').value;
+            if(!text.trim()) return;
+
+            const lines = text.split('\n');
+            let addedCount = 0;
+
+            // กลับด้านอาเรย์เพื่อให้อันบนสุดใน Textarea อยู่บนสุดของเว็บ
+            lines.reverse().forEach(line => {
+                // รองรับการแบ่งด้วย = หรือ -
+                let parts = line.split('=');
+                if(parts.length !== 2) {
+                    parts = line.split('-');
+                }
+
+                if(parts.length === 2) {
+                    const en = parts[0].trim();
+                    const th = parts[1].trim();
+                    if(en && th) {
+                        vocabData.unshift({ en, th });
+                        addedCount++;
+                    }
+                }
+            });
+
+            if(addedCount > 0) {
+                saveData(false);
+                showToast(`เพิ่มสำเร็จ ${addedCount} คำศัพท์`);
+                document.getElementById('bulkInput').value = '';
+                
+                // ซ่อนกล่องจัดการหลังเพิ่มเสร็จ
+                addSection.classList.add('hidden');
+            } else {
+                alert('ไม่พบรูปแบบที่ถูกต้อง โปรดตรวจสอบว่าใช้เครื่องหมาย = หรือ - ในการคั่นคำศัพท์และคำแปล');
+            }
+        });
+
+        // รีเซ็ตข้อมูลเป็นค่าเริ่มต้น
+        resetDefaultBtn.addEventListener('click', () => {
+            if(confirm('คำเตือน: คำศัพท์ที่คุณเพิ่มเองทั้งหมดจะหายไป และกลับไปใช้ข้อมูล 500 คำตั้งต้น ยืนยันหรือไม่?')) {
+                vocabData = [...defaultVocabData];
+                saveData(false);
+                showToast('ล้างข้อมูลและคืนค่า 500 คำเริ่มต้นแล้ว');
+            }
+        });
+
+        // ======= การโต้ตอบ UI =======
+
+        // เปิด/ปิด หน้าต่างจัดการคำศัพท์
+        toggleAddSectionBtn.addEventListener('click', () => {
+            addSection.classList.toggle('hidden');
+        });
+
+        // ค้นหา
+        searchInput.addEventListener('input', () => {
+            if(isPlayingAll) togglePlayAll();
+            window.speechSynthesis.cancel();
+            updateFilteredData();
+            renderCards();
+        });
+
+        // ปิด/เปิด คำแปล
+        toggleMeaningBtn.addEventListener('click', () => {
+            isMeaningHidden = !isMeaningHidden;
+            const meanings = document.querySelectorAll('.th-meaning');
+            
+            if(isMeaningHidden) {
+                toggleMeaningBtn.classList.replace('bg-gray-200', 'bg-blue-100');
+                toggleMeaningBtn.classList.add('text-blue-700');
+                toggleMeaningText.textContent = "แสดงคำแปล";
+                meanings.forEach(m => m.classList.add('blur-text'));
+            } else {
+                toggleMeaningBtn.classList.replace('bg-blue-100', 'bg-gray-200');
+                toggleMeaningBtn.classList.remove('text-blue-700');
+                toggleMeaningText.textContent = "ซ่อนคำแปล";
+                meanings.forEach(m => m.classList.remove('blur-text'));
+            }
+        });
+
+        playAllBtn.addEventListener('click', togglePlayAll);
+
+        // ======= เริ่มต้นการทำงาน =======
+        loadData();
+        updateFilteredData();
+        renderCards();
+        updateCount();
+
+        // หยุดเสียงหากผู้ใช้ออกจากหน้าจอ
+        window.addEventListener('beforeunload', () => {
+            window.speechSynthesis.cancel();
+        });
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && isPlayingAll) {
+                togglePlayAll();
+            }
+        });
+    </script>
+</body>
+</html>
